@@ -1,6 +1,6 @@
-from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import ForeignKey
+from rest_framework.exceptions import ValidationError
 
 from TheatreAPIService import settings
 
@@ -47,28 +47,13 @@ class Reservation(models.Model):
     )
 
 
-class Ticket(models.Model):
-    row = models.IntegerField()
-    seat = models.IntegerField()
-    performance = ForeignKey(
-        "Performance",
-        on_delete=models.CASCADE,
-        related_name="tickets",
-    )
-    reservation = models.ForeignKey(
-        Reservation,
-        on_delete=models.CASCADE,
-        related_name="tickets",
-    )
-
-
 class Performance(models.Model):
-    play = models.ForeignKey(
+    play: Play = models.ForeignKey(
         Play,
         on_delete=models.CASCADE,
         related_name="performances",
     )
-    theatre_hall = models.ForeignKey(
+    theatre_hall: TheatreHall = models.ForeignKey(
         TheatreHall,
         on_delete=models.CASCADE,
         related_name="performances",
@@ -77,3 +62,85 @@ class Performance(models.Model):
 
     def __str__(self):
         return f"{self.play}. Theatre hall: {self.theatre_hall}"
+
+    def get_taken_seats(self):
+        """Returns a list of seats taken by the play"""
+        return Ticket.objects.filter(
+            performance=self
+        ).values_list("row", "seat")
+
+    def get_free_seats(self):
+        """Returns a list of free seats for this performance."""
+        total_rows = self.theatre_hall.rows
+        seats_in_row = self.theatre_hall.seats_in_row
+        occupied_seats = set(self.get_taken_seats())
+
+        free_seats = []
+
+        for row in range(1, total_rows + 1):
+            for seat in range(1, seats_in_row + 1):
+                if (row, seat) not in occupied_seats:
+                    free_seats.append((row, seat))
+        return free_seats
+
+
+class Ticket(models.Model):
+    row = models.IntegerField()
+    seat = models.IntegerField()
+    performance: Performance = ForeignKey(
+        Performance,
+        on_delete=models.CASCADE,
+        related_name="tickets",
+    )
+    reservation: Reservation = models.ForeignKey(
+        Reservation,
+        on_delete=models.CASCADE,
+        related_name="tickets",
+    )
+
+    class Meta:
+        unique_together = ("row", "seat")
+
+    def __str__(self):
+        return f"{self.performance}. Seat: {self.seat}, row: {self.row}"
+
+    @staticmethod
+    def validate_seat(row, total_rows, seat, num_seats, error_to_raise):
+        """Checks if the row and seat is within the valid range."""
+        if not (1 <= seat <= num_seats):
+            raise error_to_raise(
+                {
+                    "seat": f"must be in range [1, {num_seats}]"
+                }
+            )
+
+        if not (1 <= row <= total_rows):
+            raise error_to_raise(
+                {"row": f"must be in range [1, {total_rows}]"}
+            )
+
+    def clean(self):
+        """Checks whether the seat and the row on the ticket is correct,
+        based on the total number of seats in the theater hall."""
+        total_rows = self.performance.theatre_hall.rows
+        seats_in_row = self.performance.theatre_hall.seats_in_row
+        Ticket.validate_seat(
+            self.row,
+            total_rows,
+            self.seat,
+            seats_in_row,
+            ValidationError
+        )
+
+        """Checking if this seat is already booked."""
+        if Ticket.objects.filter(
+            performance=self.performance,
+            row=self.row,
+            seat=self.seat,
+            reservation__isnull=False
+        ).exists():
+            raise ValidationError(
+                {
+                    "seat": f"Seat {self.seat} in row {self.row} is already booked."
+                }
+            )
