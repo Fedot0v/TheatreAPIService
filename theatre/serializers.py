@@ -14,7 +14,7 @@ from theatre.models import (
 class ActorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Actor
-        fields = ("id", "first_name", "last_name")
+        fields = ("id", "first_name", "last_name", "image")
 
 
 class GenreSerializer(serializers.ModelSerializer):
@@ -26,7 +26,7 @@ class GenreSerializer(serializers.ModelSerializer):
 class PlaySerializer(serializers.ModelSerializer):
     class Meta:
         model = Play
-        fields = ("id", "title", "description", "actors", "genres")
+        fields = ("id", "title", "description", "actors", "genres", "image")
 
 
 class ActorDetailSerializer(ActorSerializer):
@@ -34,6 +34,12 @@ class ActorDetailSerializer(ActorSerializer):
 
     class Meta(ActorSerializer.Meta):
         fields = ActorSerializer.Meta.fields + ("movies",)
+
+
+class ActorImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Actor
+        fields = ("id", "image")
 
 
 class GenreDetailSerializer(GenreSerializer):
@@ -51,6 +57,12 @@ class PlayListSerializer(PlaySerializer):
 class PlayDetailSerializer(PlaySerializer):
     genres = GenreSerializer(many=True, read_only=True)
     actors = ActorSerializer(many=True, read_only=True)
+
+
+class PlayImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Play
+        fields = ("id", "image")
 
 
 class TheatreHallSerializer(serializers.ModelSerializer):
