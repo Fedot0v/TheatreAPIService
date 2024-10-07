@@ -80,21 +80,21 @@ class PerformanceSerializer(serializers.ModelSerializer):
 
 class PerformanceListSerializer(PerformanceSerializer):
     """We define a field to get the number of free seats through the serializer method"""
-    free_seats_count = serializers.SerializerMethodField()
+    available_seats_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Performance
-        fields = PerformanceSerializer.Meta.fields + ("free_seats_count",)
+        fields = PerformanceSerializer.Meta.fields + ("available_seats_count",)
 
     """We call the get_free_seats_count() method of the Performance model to get it
     of free places for the current object (obj) """
     def get_available_seats_count(self, obj):
-        return obj.free_seats_count()
+        return len(obj.free_seats_count())
 
 
 class PerformanceDetailSerializer(PerformanceSerializer):
-    play = PlayDetailSerializer(many=True, read_only=True)
-    theatre_hall = TheatreHallSerializer(many=True, read_only=True)
+    play = PlayDetailSerializer(read_only=True)
+    theatre_hall = TheatreHallSerializer(read_only=True)
 
 
 class ReservationSerializer(serializers.ModelSerializer):

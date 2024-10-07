@@ -27,7 +27,7 @@ from theatre.serializers import (
     ReservationSerializer,
     PerformanceSerializer,
     PerformanceListSerializer,
-    PerformanceDetailSerializer, TicketSerializer
+    PerformanceDetailSerializer,
 )
 from theatre.utils import params_to_int
 
