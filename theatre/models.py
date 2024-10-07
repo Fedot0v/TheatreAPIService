@@ -1,14 +1,25 @@
+import os
+import uuid
+
 from django.db import models
 from django.db.models import ForeignKey
+from django.utils.text import slugify
 from rest_framework.exceptions import ValidationError
 
 from TheatreAPIService import settings
 
 
+def create_custom_path(instance, filename):
+    _, ext = os.path.splitext(filename)
+    return os.path.join(
+        "uploads/images/", f"{slugify(instance.title)}-{uuid.uuid4()}{ext}"
+    )
+
+
 class Actor(models.Model):
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
-    image = models.ImageField(upload_to="actors/")
+    image = models.ImageField(upload_to=create_custom_path)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
@@ -24,7 +35,7 @@ class Genre(models.Model):
 class Play(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
-    image = models.ImageField(upload_to="images/")
+    image = models.ImageField(upload_to=create_custom_path)
     actors = models.ManyToManyField(Actor)
     genres = models.ManyToManyField(Genre)
 
@@ -68,8 +79,7 @@ class Performance(models.Model):
     def get_taken_seats(self):
         """Returns a list of seats taken by the play"""
         return Ticket.objects.filter(
-            performance=self
-        ).values_list("row", "seat")
+            performance=self).values_list("row", "seat")
 
     def get_free_seats(self):
         """Returns a list of free seats for this performance."""
@@ -111,15 +121,11 @@ class Ticket(models.Model):
         """Checks if the row and seat is within the valid range."""
         if not (1 <= seat <= num_seats):
             raise error_to_raise(
-                {
-                    "seat": f"must be in range [1, {num_seats}]"
-                }
-            )
+                {"seat": f"must be in range [1, {num_seats}]"})
 
         if not (1 <= row <= total_rows):
             raise error_to_raise(
-                {"row": f"must be in range [1, {total_rows}]"}
-            )
+                {"row": f"must be in range [1, {total_rows}]"})
 
     def clean(self):
         """Checks whether the seat and the row on the ticket is correct,
@@ -127,11 +133,7 @@ class Ticket(models.Model):
         total_rows = self.performance.theatre_hall.rows
         seats_in_row = self.performance.theatre_hall.seats_in_row
         Ticket.validate_seat(
-            self.row,
-            total_rows,
-            self.seat,
-            seats_in_row,
-            ValidationError
+            self.row, total_rows, self.seat, seats_in_row, ValidationError
         )
 
         """Checking if this seat is already booked."""
@@ -139,10 +141,12 @@ class Ticket(models.Model):
             performance=self.performance,
             row=self.row,
             seat=self.seat,
-            reservation__isnull=False
+            reservation__isnull=False,
         ).exists():
             raise ValidationError(
-                {
-                    "seat": f"Seat {self.seat} in row {self.row} is already booked."
-                }
+                {"seat": f"Seat {self.seat} in row {self.row} is already booked."}
             )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super(Ticket, self).save(*args, **kwargs)

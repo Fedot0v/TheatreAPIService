@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 
 from theatre.models import (
@@ -81,6 +82,10 @@ class PerformanceListSerializer(PerformanceSerializer):
     """We define a field to get the number of free seats through the serializer method"""
     free_seats_count = serializers.SerializerMethodField()
 
+    class Meta:
+        model = Performance
+        fields = PerformanceSerializer.Meta.fields + ("free_seats_count",)
+
     """We call the get_free_seats_count() method of the Performance model to get it
     of free places for the current object (obj) """
     def get_available_seats_count(self, obj):
@@ -98,6 +103,13 @@ class ReservationSerializer(serializers.ModelSerializer):
         fields = ("id", "created_at", "user")
         read_only_fields = ("created_at", "user")
 
+    def create(self, validated_data):
+        with transaction.atomic():
+            tickets_data = validated_data.pop("tickets")
+            reservation = Reservation.objects.create(**validated_data)
+            for ticket in tickets_data:
+                Ticket.objects.create(reservation=reservation, **ticket)
+            return reservation
 
 class TicketSerializer(serializers.ModelSerializer):
     class Meta:
