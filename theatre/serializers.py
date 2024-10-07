@@ -86,10 +86,10 @@ class PerformanceListSerializer(PerformanceSerializer):
         model = Performance
         fields = PerformanceSerializer.Meta.fields + ("available_seats_count",)
 
-    """We call the get_free_seats_count() method of the Performance model to get it
+    """We call the get_available_seats_count() method of the Performance model to get it
     of free places for the current object (obj) """
     def get_available_seats_count(self, obj):
-        return len(obj.free_seats_count())
+        return len(obj.get_free_seats())
 
 
 class PerformanceDetailSerializer(PerformanceSerializer):
