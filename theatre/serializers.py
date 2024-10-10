@@ -97,22 +97,45 @@ class PerformanceDetailSerializer(PerformanceSerializer):
     theatre_hall = TheatreHallSerializer(read_only=True)
 
 
-class ReservationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Reservation
-        fields = ("id", "created_at", "user")
-        read_only_fields = ("created_at", "user")
-
-    def create(self, validated_data):
-        with transaction.atomic():
-            tickets_data = validated_data.pop("tickets")
-            reservation = Reservation.objects.create(**validated_data)
-            for ticket in tickets_data:
-                Ticket.objects.create(reservation=reservation, **ticket)
-            return reservation
-
 class TicketSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        data = super(TicketSerializer, self).validate(attrs)
+
+        performance = attrs["performance"]
+        theatre_hall = performance.theatre_hall
+
+        Ticket.validate_seat(
+            attrs["row"],
+            theatre_hall.rows,
+            attrs["seat"],
+            theatre_hall.seats_in_row,
+            serializers.ValidationError
+        )
+        return data
+
     class Meta:
         model = Ticket
         fields = ("id", "row", "seat", "performance", "reservation")
         read_only_fields = ("reservation",)
+
+
+class ReservationSerializer(serializers.ModelSerializer):
+    tickets = TicketSerializer(
+        many=True,
+        read_only=False,
+        allow_empty=False
+    )
+    class Meta:
+        model = Reservation
+        fields = ("id", "created_at", "user", "tickets")
+        read_only_fields = ("created_at", "user")
+
+    def create(self, validated_data):
+        tickets_data = validated_data.pop("tickets")
+        if not tickets_data:
+            raise serializers.ValidationError({"tickets": "This field is required."})
+        with transaction.atomic():
+            reservation = Reservation.objects.create(**validated_data)
+            for ticket in tickets_data:
+                Ticket.objects.create(reservation=reservation, **ticket)
+            return reservation

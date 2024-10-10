@@ -2,7 +2,7 @@ import os
 import uuid
 
 from django.db import models
-from django.db.models import ForeignKey
+from django.db.models import ForeignKey, UniqueConstraint
 from django.utils.text import slugify
 from rest_framework.exceptions import ValidationError
 
@@ -31,7 +31,7 @@ class Actor(models.Model):
 
 
 class Genre(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
 
     def __str__(self):
         return self.name
@@ -116,7 +116,12 @@ class Ticket(models.Model):
     )
 
     class Meta:
-        unique_together = ("row", "seat")
+        constraints = [
+            UniqueConstraint(
+                fields=["row", "seat", "performance"],
+                name="unique_ticket"
+            )
+        ]
 
     def __str__(self):
         return f"{self.performance}. Seat: {self.seat}, row: {self.row}"
