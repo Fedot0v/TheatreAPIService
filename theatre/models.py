@@ -41,8 +41,8 @@ class Play(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     image = models.ImageField(upload_to=create_custom_path)
-    actors = models.ManyToManyField(Actor)
-    genres = models.ManyToManyField(Genre)
+    actors = models.ManyToManyField(Actor, blank=True)
+    genres = models.ManyToManyField(Genre, blank=True)
 
     def __str__(self):
         return self.title
@@ -79,7 +79,10 @@ class Performance(models.Model):
     show_time = models.DateTimeField()
 
     def __str__(self):
-        return f"{self.play}. Theatre hall: {self.theatre_hall}"
+        return (f"{self.play}."
+                f" Theatre hall: {self.theatre_hall}."
+                f" Show time: {self.show_time}"
+        )
 
     def get_taken_seats(self):
         """Returns a list of seats taken by the play"""
