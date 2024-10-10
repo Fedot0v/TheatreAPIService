@@ -151,6 +151,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
         return Reservation.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
+        print(self.request.data)
         serializer.save(user=self.request.user)
 
 
