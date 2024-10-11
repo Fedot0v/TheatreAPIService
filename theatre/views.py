@@ -5,13 +5,14 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
+from theatre import serializers
 from theatre.models import (
     Genre,
     Actor,
     Play,
     TheatreHall,
     Reservation,
-    Performance, Ticket
+    Performance, Ticket,
 )
 from theatre.serializers import (
     GenreSerializer,
@@ -27,7 +28,7 @@ from theatre.serializers import (
     ReservationSerializer,
     PerformanceSerializer,
     PerformanceListSerializer,
-    PerformanceDetailSerializer,
+    PerformanceDetailSerializer, TicketSerializer,
 )
 from theatre.utils import params_to_int
 
@@ -161,6 +162,7 @@ class PerformanceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = self.queryset
+        print("Initial queryset:", queryset)  # Для отладки
 
         play = self.request.query_params.get("play")
         theatre_hall = self.request.query_params.get("theatre_hall")
@@ -175,7 +177,7 @@ class PerformanceViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(theatre_hall_id__in=theatre_hall_ids)
 
         if date:
-            date = datetime.strptime(date,"%Y-%m-%d %H:%M").date()
+            date = datetime.strptime(date, "%Y-%m-%d").date()
             queryset = queryset.filter(show_time__date=date)
 
         return queryset
@@ -188,3 +190,8 @@ class PerformanceViewSet(viewsets.ModelViewSet):
             return PerformanceDetailSerializer
 
         return PerformanceSerializer
+
+
+class TicketModelViewSet(viewsets.ModelViewSet):
+    queryset = Ticket.objects.all()
+    serializer_class = TicketSerializer
