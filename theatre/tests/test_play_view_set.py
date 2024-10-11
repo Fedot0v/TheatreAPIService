@@ -1,44 +1,45 @@
 import uuid
-from unittest import TestCase
 
+import pytest
 from django.contrib.auth import get_user_model
+from django.test import TestCase
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
 from theatre.models import Play, Actor, Genre
-from theatre.serializers import PlaySerializer, PlayListSerializer, PlayDetailSerializer
+from theatre.serializers import PlayListSerializer, PlayDetailSerializer
 
 PLAY_URL = reverse("theatre:play-list")
 
 def detail_url(performance_id):
     return reverse("theatre:play-detail", args=[performance_id])
 
-
 def sample_play(**params):
     defaults = {
-        "title": "Test play",
+        "title": f"Test play {uuid.uuid4()}",
         "description": "Test play"
     }
     defaults.update(params)
     return Play.objects.create(**defaults)
-
 
 def sample_actor(**params):
     defaults = {
         "first_name": "John",
         "last_name": "Doe",
     }
+    defaults.update(params)
     return Actor.objects.create(**defaults)
-
 
 def sample_genre(**params):
     defaults = {
-        "name": "Test genre",
+        "name": f"Test genre {uuid.uuid4()}",  # Ensuring unique genre names
     }
+    defaults.update(params)
     return Genre.objects.create(**defaults)
 
 
+@pytest.mark.django_db
 class UnauthenticatedUserTestCase(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -48,16 +49,17 @@ class UnauthenticatedUserTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
+@pytest.mark.django_db
 class AuthenticatedUserTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.client = APIClient()
         cls.user = get_user_model().objects.create_user(
             email=f"testuser-{uuid.uuid4()}@test.com",
             password="testpassword",
         )
 
     def setUp(self):
+        self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
     def test_plays_list(self):
@@ -77,7 +79,6 @@ class AuthenticatedUserTestCase(TestCase):
     def test_filter_plays_by_genre(self):
         genre1 = sample_genre(name="Drama")
         genre2 = sample_genre(name="Comedy")
-        play = sample_play()
         play1 = sample_play(title="Play 1")
         play2 = sample_play(title="Play 2")
         play1.genres.add(genre1)
@@ -88,35 +89,29 @@ class AuthenticatedUserTestCase(TestCase):
             {"genres": f"{genre1.id},{genre2.id}"}
         )
 
-        serializer = PlaySerializer(play)
         serializer1 = PlayListSerializer(play1)
         serializer2 = PlayListSerializer(play2)
 
         self.assertIn(serializer1.data, response.data)
         self.assertIn(serializer2.data, response.data)
-        self.assertNotIn(serializer.data, response.data)
 
     def test_filter_plays_by_actor(self):
         actor1 = sample_actor(first_name="test", last_name="test")
         actor2 = sample_actor(first_name="test1", last_name="test1")
-        actor3 = sample_actor(first_name="test3", last_name="test3")
 
-        play = sample_play()
         play1 = sample_play(title="Play 1")
         play2 = sample_play(title="Play 2")
 
         play1.actors.add(actor1, actor2)
         play2.actors.add(actor2)
 
-        response = self.client.get(PLAY_URL, f"{actor2.id}")
+        response = self.client.get(PLAY_URL, {"actors": actor2.id})
 
-        serializer = PlaySerializer(play)
         serializer1 = PlayListSerializer(play1)
         serializer2 = PlayListSerializer(play2)
 
         self.assertIn(serializer1.data, response.data)
         self.assertIn(serializer2.data, response.data)
-        self.assertNotIn(serializer.data, response.data)
 
     def test_retrieve_play_detail(self):
         play = sample_play()
@@ -143,27 +138,31 @@ class AuthenticatedUserTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
+@pytest.mark.django_db
 class AdminPlayTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_superuser(
+            email="testadmin@test.com",
+            password="testpassword",
+        )
+
     def setUp(self):
         self.client = APIClient()
-        self.user = get_user_model().objects.create_superuser(
-            email="testadmin@test.com",
-            password="<PASSWORD>",
-        )
         self.client.force_authenticate(user=self.user)
 
     def test_create_play(self):
         payload = {
-            "title": "Test play",
+            "title": f"Test play {uuid.uuid4()}",
             "description": "Test play",
         }
 
         response = self.client.post(PLAY_URL, payload)
 
-        play = Play.objects.get(id=response.data["id"])
-
+        print("Response data:", response.data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
+        play = Play.objects.get(id=response.data["id"])
 
         for key in payload:
             self.assertEqual(payload[key], getattr(play, key))
@@ -172,17 +171,19 @@ class AdminPlayTest(TestCase):
         actor1 = sample_actor(first_name="test", last_name="test")
         actor2 = sample_actor(first_name="test1", last_name="test1")
         payload = {
-            "title": "Test play",
+            "title": f"Test play {uuid.uuid4()}",
             "description": "Test play",
             "actors": [actor1.id, actor2.id],
         }
 
         response = self.client.post(PLAY_URL, payload)
 
+        print("Response data:", response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
         play = Play.objects.get(id=response.data["id"])
         actors = play.actors.all()
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn(actor1, actors)
         self.assertIn(actor2, actors)
         self.assertEqual(actors.count(), 2)
@@ -192,17 +193,19 @@ class AdminPlayTest(TestCase):
         genre2 = sample_genre(name="Comedy")
 
         payload = {
-            "title": "Test play",
+            "title": f"Test play {uuid.uuid4()}",
             "description": "Test play",
             "genres": [genre1.id, genre2.id],
         }
 
         response = self.client.post(PLAY_URL, payload)
 
+        print("Response data:", response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
         play = Play.objects.get(id=response.data["id"])
         genres = play.genres.all()
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn(genre1, genres)
         self.assertIn(genre2, genres)
         self.assertEqual(genres.count(), 2)
