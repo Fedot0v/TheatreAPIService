@@ -7,36 +7,14 @@ from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
-from theatre.models import Play, Actor, Genre
+from theatre.models import Play
 from theatre.serializers import PlayListSerializer, PlayDetailSerializer
+from theatre.tests.test_utils import sample_play, sample_actor, sample_genre
 
 PLAY_URL = reverse("theatre:play-list")
 
 def detail_url(performance_id):
     return reverse("theatre:play-detail", args=[performance_id])
-
-def sample_play(**params):
-    defaults = {
-        "title": f"Test play {uuid.uuid4()}",
-        "description": "Test play"
-    }
-    defaults.update(params)
-    return Play.objects.create(**defaults)
-
-def sample_actor(**params):
-    defaults = {
-        "first_name": "John",
-        "last_name": "Doe",
-    }
-    defaults.update(params)
-    return Actor.objects.create(**defaults)
-
-def sample_genre(**params):
-    defaults = {
-        "name": f"Test genre {uuid.uuid4()}",  # Ensuring unique genre names
-    }
-    defaults.update(params)
-    return Genre.objects.create(**defaults)
 
 
 @pytest.mark.django_db
@@ -166,6 +144,16 @@ class AdminPlayTest(TestCase):
 
         for key in payload:
             self.assertEqual(payload[key], getattr(play, key))
+
+    def test_invalid_play(self):
+        payload = {
+            "title": "",
+            "description": "Test play",
+        }
+
+        response = self.client.post(PLAY_URL, payload)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_create_play_with_actors(self):
         actor1 = sample_actor(first_name="test", last_name="test")
