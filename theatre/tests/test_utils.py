@@ -7,7 +7,8 @@ from theatre.models import Play, Actor, Genre, TheatreHall, Performance, Reserva
 def sample_play(**params):
     defaults = {
         "title": f"Test play {uuid.uuid4()}",
-        "description": "Test play"
+        "description": "Test play",
+        "image": params.get("image", None)
     }
     defaults.update(params)
     return Play.objects.create(**defaults)
@@ -17,6 +18,7 @@ def sample_actor(**params):
     defaults = {
         "first_name": "John",
         "last_name": "Doe",
+        "image": params.get("image", None)
     }
     defaults.update(params)
     return Actor.objects.create(**defaults)
@@ -66,12 +68,18 @@ def sample_reservation(user, performance=None, **params):
     if performance is None:
         performance = sample_performance(**params)
 
-    defaults = {
-        "user": user,
-        "performance": performance,
-    }
-    defaults.update(params)
-    return Reservation.objects.create(**defaults)
+    reservation = Reservation.objects.create(user=user)
+
+    tickets = params.pop('tickets', [])
+    for ticket_data in tickets:
+        Ticket.objects.create(
+            row=ticket_data['row'],
+            seat=ticket_data['seat'],
+            performance=performance,
+            reservation=reservation,
+        )
+
+    return reservation
 
 
 def sample_ticket(
@@ -83,6 +91,7 @@ def sample_ticket(
 ):
     if performance is None:
         performance = sample_performance(**params)
+
     if reservation is None:
         reservation = sample_reservation(
             user=params.get('user'),
@@ -96,4 +105,5 @@ def sample_ticket(
         "reservation": reservation,
     }
     defaults.update(params)
+
     return Ticket.objects.create(**defaults)
