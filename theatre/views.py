@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from drf_spectacular.utils import OpenApiParameter, extend_schema, OpenApiExample
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser
@@ -89,13 +90,24 @@ class ActorViewSet(viewsets.ModelViewSet, ImageUploadMixin):
         if last_name:
             queryset = queryset.filter(last_name__icontains=last_name)
 
-        if first_name or last_name:
-            queryset = queryset.filter(
-                first_name__icontains=first_name,
-                last_name__icontains=last_name
-            )
-
         return queryset.distinct()
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "first_name",
+                type={"type": "array", "items": {"type": "string"}},
+                description="Filter by first name (ex. ?first_name=John)",
+            ),
+            OpenApiParameter(
+                "last_name",
+                type={"type": "array", "items": {"type": "string"}},
+                description="Filter by last name (ex. ?last_name=Smith)",
+            ),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class PlayViewSet(viewsets.ModelViewSet):
@@ -135,6 +147,28 @@ class PlayViewSet(viewsets.ModelViewSet):
 
         return PlaySerializer
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "title",
+                type={"type": "array", "items": {"type": "string"}},
+                description="Filter by title. (ex. ?title=Hamlet)",
+            ),
+            OpenApiParameter(
+                "actors",
+                type={"type": "array", "items": {"type": "number"}},
+                description="Filter by actors. (ex. ?actors=1, 3)",
+            ),
+            OpenApiParameter(
+                "genres",
+                type={"type": "array", "items": {"type": "number"}},
+                description="Filter by genres. (ex. ?genres=1, 3)",
+            )
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
 
 class TheatreHallViewSet(viewsets.ModelViewSet):
     queryset = TheatreHall.objects.all()
@@ -155,6 +189,23 @@ class ReservationViewSet(viewsets.ModelViewSet):
         print(self.request.data)
         serializer.save(user=self.request.user)
 
+    @extend_schema(
+        examples=[
+            OpenApiExample(
+                "Reservation example",
+                summary="Example of reservation data",
+                description="An example payload for creating a reservation",
+                value={
+                    "tickets": [
+                        {"performance": 1, "row": 5, "seat": 3}
+                    ]
+                }
+            )
+        ]
+    )
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
 
 class PerformanceViewSet(viewsets.ModelViewSet):
     queryset = Performance.objects.all()
@@ -162,7 +213,6 @@ class PerformanceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = self.queryset
-        print("Initial queryset:", queryset)  # Для отладки
 
         play = self.request.query_params.get("play")
         theatre_hall = self.request.query_params.get("theatre_hall")
@@ -181,6 +231,28 @@ class PerformanceViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(show_time__date=date)
 
         return queryset
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "play",
+                type={"type": "array", "items": {"type": "number"}},
+                description="Filter by play. (ex. ?play=1)",
+            ),
+            OpenApiParameter(
+                "theatre_hall",
+                type={"type": "array", "items": {"type": "number"}},
+                description="Filter by theatre hall. (ex. ?theatre_hall=1,2)",
+            ),
+            OpenApiParameter(
+                "date",
+                type={"type": "array", "items": {"type": "string"}},
+                description="Filter by performance date (YYYY-MM-DD). (ex. ?date=2024-10-13)",
+            ),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     def get_serializer_class(self):
         if self.action == "list":
