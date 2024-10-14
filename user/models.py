@@ -40,6 +40,8 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser):
     username = None
     email = models.EmailField(_("email address"), unique=True)
+    is_staff = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
