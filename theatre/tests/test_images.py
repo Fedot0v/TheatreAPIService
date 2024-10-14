@@ -43,4 +43,3 @@ class ImageUploadTest(TestCase):
 
         os.remove(actor.image.path)
         os.remove(play.image.path)
-

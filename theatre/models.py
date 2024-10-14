@@ -115,12 +115,12 @@ class Performance(models.Model):
 class Ticket(models.Model):
     row = models.IntegerField()
     seat = models.IntegerField()
-    performance: Performance = ForeignKey(
+    performance= ForeignKey(
         Performance,
         on_delete=models.CASCADE,
         related_name="tickets",
     )
-    reservation: Reservation = models.ForeignKey(
+    reservation = models.ForeignKey(
         Reservation,
         on_delete=models.CASCADE,
         related_name="tickets",
